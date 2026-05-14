@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SahApp">
+<meta name="application-name" content="SahApp">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="msapplication-TileColor" content="#1a1a2e">
+<meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+<meta name="description" content="Saha ölçüm ve haritalama uygulaması">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Apple Touch Icons -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="57x57"  href="icons/icon-57x57.png">
+<link rel="apple-touch-icon" sizes="60x60"  href="icons/icon-60x60.png">
+<link rel="apple-touch-icon" sizes="72x72"  href="icons/icon-72x72.png">
+<link rel="apple-touch-icon" sizes="76x76"  href="icons/icon-76x76.png">
+<link rel="apple-touch-icon" sizes="114x114" href="icons/icon-114x114.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120x120.png">
+<link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167x167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+<link rel="shortcut icon" href="icons/favicon.ico">
+
+<!-- iOS Splash Screens -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<title>SahApp</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:'Segoe UI',Arial,sans-serif;background:#1a1a2e;overflow:hidden;}
+body{
+  display:flex;flex-direction:column;
+  /* iOS notch/home bar için safe area */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+#map{flex:1;width:100%;z-index:1;min-height:0;}
+
+#crosshair{position:fixed;top:50%;left:50%;margin-top:-40px;
+  transform:translate(-50%,-50%);width:28px;height:28px;pointer-events:none;z-index:500;}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:#ff4757;}
+#crosshair::before{top:13px;left:0;width:28px;height:2px;box-shadow:0 0 6px rgba(255,71,87,.9);}
+#crosshair::after{top:0;left:13px;width:2px;height:28px;box-shadow:0 0 6px rgba(255,71,87,.9);}
+
+#menu-btn{position:fixed;top:14px;left:14px;z-index:1000;
+  background:linear-gradient(135deg,#2d3561,#1a1a2e);color:#fff;
+  border:none;padding:11px 15px;font-size:20px;border-radius:12px;cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.5);}
+
+#top-right{position:fixed;top:14px;right:14px;z-index:1001;
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+#gps-box{background:rgba(26,26,46,.95);color:#eee;padding:9px 14px;
+  font-size:12px;font-weight:600;border-radius:10px;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);border-left:4px solid #a29bfe;white-space:nowrap;}
+#layer-btn{background:linear-gradient(135deg,#0984e3,#74b9ff);color:#fff;
+  border:none;padding:9px 14px;font-size:13px;font-weight:700;border-radius:10px;
+  cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);white-space:nowrap;}
+#trash-btn{background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;
+  border:none;padding:9px 13px;font-size:17px;border-radius:10px;cursor:pointer;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);}
+
+#locate-btn{position:fixed;bottom:98px;right:16px;width:52px;height:52px;
+  background:linear-gradient(135deg,#2d3561,#3d4a8a);border-radius:50%;
+  display:flex;justify-content:center;align-items:center;
+  box-shadow:0 4px 16px rgba(0,0,0,.6);z-index:1000;cursor:pointer;
+  font-size:22px;border:2.5px solid rgba(116,185,255,.6);}
+
+#layer-panel{display:none;position:fixed;top:14px;right:14px;z-index:1002;
+  background:rgba(20,20,38,.98);border-radius:16px;padding:10px;min-width:210px;
+  box-shadow:0 8px 32px rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.1);}
+#layer-panel.show{display:block;}
+.lp-head{display:flex;justify-content:space-between;align-items:center;
+  padding:2px 6px 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px;}
+.lp-head span{color:#74b9ff;font-size:13px;font-weight:700;}
+.lp-x{background:none;border:none;color:#b2bec3;font-size:22px;cursor:pointer;}
+.layer-opt{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:10px;cursor:pointer;color:#dfe6e9;font-size:13px;font-weight:600;transition:background .2s;}
+.layer-opt:hover{background:rgba(255,255,255,.1);}
+.layer-opt.active{background:rgba(9,132,227,.3);color:#74b9ff;}
+.li{font-size:20px;flex-shrink:0;}
+.ls{font-size:10px;color:#b2bec3;font-weight:400;}
+
+#sidebar{position:fixed;top:0;left:-300px;width:280px;height:100%;
+  background:linear-gradient(180deg,#1a1a2e 0%,#2d3561 100%);
+  color:#fff;z-index:2000;transition:.3s ease;
+  box-shadow:4px 0 20px rgba(0,0,0,.6);display:flex;flex-direction:column;}
+#sidebar.active{left:0;}
+#sb-head{padding:20px;background:rgba(0,0,0,.3);
+  display:flex;justify-content:space-between;align-items:center;}
+#sb-head span{color:#a29bfe;font-size:17px;font-weight:bold;}
+#sb-close{background:none;border:none;color:#dfe6e9;font-size:26px;cursor:pointer;}
+.btn-newproj{background:linear-gradient(135deg,#f39c12,#e67e22);
+  border:none;padding:14px 18px;color:#fff;font-weight:bold;cursor:pointer;font-size:15px;text-align:left;width:100%;}
+.btn-impkml{background:linear-gradient(135deg,#2980b9,#0984e3);
+  border:none;padding:14px 18px;color:#fff;font-weight:bold;cursor:pointer;font-size:13px;text-align:center;display:block;width:100%;}
+#project-list{list-style:none;padding:0;margin:0;overflow-y:auto;flex-grow:1;}
+.proj-item{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex;justify-content:space-between;align-items:center;}
+.proj-item.active-proj{background:rgba(39,174,96,.25);border-left:3px solid #27ae60;}
+.proj-name{cursor:pointer;flex-grow:1;font-weight:600;color:#dfe6e9;font-size:14px;}
+.btn-delproj{background:#c0392b;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;}
+#sb-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1999;}
+
+#controls{height:80px;flex-shrink:0;
+  background:linear-gradient(135deg,#1a1a2e 0%,#2d3561 100%);
+  display:flex;justify-content:space-evenly;align-items:center;
+  z-index:10;padding:0 4px;border-top:1px solid rgba(162,155,254,.2);}
+.ctrl-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:8px 6px;font-size:10px;font-weight:700;border:none;border-radius:14px;
+  color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);
+  min-width:48px;gap:4px;transition:transform .13s,opacity .13s;}
+.ctrl-btn:active{transform:scale(.91);opacity:.8;}
+.bi{font-size:19px;}
+.b-nokta{background:linear-gradient(135deg,#27ae60,#2ecc71);}
+.b-alan{background:linear-gradient(135deg,#8e44ad,#9b59b6);}
+.b-line{background:linear-gradient(135deg,#e67e22,#f39c12);}
+.b-kml{background:linear-gradient(135deg,#0984e3,#74b9ff);}
+.b-txt{background:linear-gradient(135deg,#546de5,#778beb);}
+.b-dxf{background:linear-gradient(135deg,#2d3436,#636e72);color:#dfe6e9;}
+
+#draw-controls{display:none;height:80px;flex-shrink:0;
+  background:linear-gradient(135deg,#1a1a2e,#2d3561);
+  justify-content:space-evenly;align-items:center;
+  z-index:10;border-top:1px solid rgba(162,155,254,.2);}
+.b-addv{background:linear-gradient(135deg,#f1c40f,#f39c12);color:#1a1a2e;}
+.b-finish{background:linear-gradient(135deg,#27ae60,#2ecc71);}
+.b-cancel{background:linear-gradient(135deg,#c0392b,#e74c3c);}
+
+#modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.6);z-index:2999;}
+
+.dark-modal,#confirm-modal,#export-modal,#kml-name-modal{
+  display:none;position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);background:#2b2b3d;
+  padding:26px;border-radius:20px;box-shadow:0 16px 56px rgba(0,0,0,.75);
+  z-index:3000;width:88%;max-width:340px;border:1px solid rgba(255,255,255,.09);}
+.m-head{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.m-head .mi{font-size:22px;}
+.m-head h3{color:#f5f5f5;font-size:18px;font-weight:700;margin:0;}
+.m-sub{color:#b2bec3;font-size:13px;margin:7px 0 16px;}
+.dark-modal input[type=text],#kml-name-modal input[type=text]{
+  width:100%;padding:13px 16px;background:#1a1a2e;
+  border:1.5px solid rgba(162,155,254,.3);border-radius:11px;
+  color:#f5f5f5;font-size:14px;margin-bottom:16px;}
+.dark-modal input::placeholder,#kml-name-modal input::placeholder{color:#636e72;}
+.dark-modal input:focus,#kml-name-modal input:focus{outline:none;border-color:#a29bfe;}
+.m-btns{display:flex;gap:10px;}
+.btn-mc{flex:1;background:#3a3a52;color:#dfe6e9;border:none;padding:13px;border-radius:11px;font-weight:700;font-size:13px;cursor:pointer;}
+.btn-mo{flex:1;background:linear-gradient(135deg,#c9a227,#f1c40f);color:#1a1a2e;border:none;padding:13px;border-radius:11px;font-weight:700;font-size:13px;cursor:pointer;}
+.btn-confirm-ok{flex:1;background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;border:none;padding:13px;border-radius:11px;font-weight:700;font-size:13px;cursor:pointer;}
+
+.export-opt-btn{width:100%;padding:14px;margin-bottom:10px;border:none;border-radius:13px;
+  font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:12px;}
+.export-opt-btn:last-child{margin-bottom:0;}
+.btn-wa{background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;}
+.btn-storage{background:linear-gradient(135deg,#546de5,#778beb);color:#fff;}
+.btn-exp-cancel{background:#3a3a52;color:#dfe6e9;justify-content:center;}
+.eo-icon{font-size:22px;flex-shrink:0;}
+.eo-texts{display:flex;flex-direction:column;}
+.eo-title{font-size:14px;font-weight:700;}
+.eo-sub{font-size:11px;opacity:.75;font-weight:400;}
+
+#toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);
+  background:rgba(26,26,46,.95);color:#dfe6e9;padding:10px 20px;
+  border-radius:20px;font-size:13px;z-index:9999;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);opacity:0;transition:opacity .3s;pointer-events:none;}
+#toast.show{opacity:1;}
+
+input[type=file]{display:none;}
+.leaflet-control-zoom{display:none;}
+#dom-modal{display:none;position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);background:#2b2b3d;
+  padding:26px;border-radius:20px;box-shadow:0 16px 56px rgba(0,0,0,.75);
+  z-index:3000;width:88%;max-width:360px;border:1px solid rgba(255,255,255,.09);
+  max-height:90vh;overflow-y:auto;}
+</style>
+</head>
+<body>
+
+<button id="menu-btn" onclick="openSidebar()">☰</button>
+
+<div id="top-right">
+  <div id="gps-box">📡 GPS Aranıyor...</div>
+  <button id="layer-btn" onclick="toggleLayerPanel()">🗺️ Katmanlar ▾</button>
+  <button id="trash-btn" onclick="askClearProject()">🗑️</button>
+</div>
+
+<div id="layer-panel">
+  <div class="lp-head"><span>🗺️ Harita Katmanı</span><button class="lp-x" onclick="toggleLayerPanel()">×</button></div>
+  <div class="layer-opt active" id="opt-osm" onclick="switchLayer('osm')"><span class="li">🗺️</span><div><div>OpenStreetMap</div><div class="ls">Leaflet Standart</div></div></div>
+  <div class="layer-opt" id="opt-google-street" onclick="switchLayer('google-street')"><span class="li">🛣️</span><div><div>Google Street</div><div class="ls">Yol Haritası</div></div></div>
+  <div class="layer-opt" id="opt-satellite" onclick="switchLayer('satellite')"><span class="li">🛰️</span><div><div>Esri Uydu</div><div class="ls">World Imagery</div></div></div>
+  <div class="layer-opt" id="opt-google-sat" onclick="switchLayer('google-sat')"><span class="li">🌍</span><div><div>Google Uydu</div><div class="ls">Satellite Görüntü</div></div></div>
+</div>
+
+<div id="sb-overlay" onclick="closeSidebar()"></div>
+<div id="sidebar">
+  <div id="sb-head"><span>📁 Dosyalar</span><button id="sb-close" onclick="closeSidebar()">×</button></div>
+  <button class="btn-newproj" onclick="createNewProject()">＋ Yeni Dosya</button>
+  <label class="btn-impkml">📂 Altlık Yükle (KML)<input type="file" id="kml-input" accept=".kml" onchange="importKML(event)"></label>
+  <ul id="project-list"></ul>
+</div>
+
+<div id="map"></div>
+<div id="crosshair"></div>
+<div id="locate-btn" onclick="goToMyLocation()">🎯</div>
+
+<div id="controls">
+  <button class="ctrl-btn b-nokta" onclick="openPointModal()"><span class="bi">📍</span>Nokta</button>
+  <button class="ctrl-btn b-alan"  onclick="startDrawing('area')"><span class="bi">📐</span>Alan</button>
+  <button class="ctrl-btn b-line"  onclick="startDrawing('line')"><span class="bi">〰️</span>Çizgi</button>
+  <button class="ctrl-btn b-kml"   onclick="askExport('kml')"><span class="bi">⬇️</span>KML</button>
+  <button class="ctrl-btn b-txt"   onclick="askExport('txt')"><span class="bi">📄</span>TXT</button>
+  <button class="ctrl-btn b-dxf"   onclick="askExport('dxf')"><span class="bi">✏️</span>DXF</button>
+</div>
+<div id="draw-controls">
+  <button class="ctrl-btn b-addv"   onclick="addVertex()"><span class="bi">＋</span>Köşe Ekle</button>
+  <button class="ctrl-btn b-finish" onclick="finishDrawing()"><span class="bi">✔</span>Bitir</button>
+  <button class="ctrl-btn b-cancel" onclick="cancelDrawing()"><span class="bi">✖</span>İptal</button>
+</div>
+
+<div id="modal-overlay"></div>
+
+<div id="data-modal" class="dark-modal">
+  <div class="m-head"><span class="mi" id="m-icon">📍</span><h3 id="m-title">Nokta Kaydet</h3></div>
+  <p class="m-sub" id="m-sub">Konuma bir isim verin.</p>
+  <input type="text" id="item-name" placeholder="Örn: P1, N1, Alan-1">
+  <div class="m-btns">
+    <button class="btn-mc" onclick="closeModal()">İPTAL</button>
+    <button class="btn-mo" id="save-btn" onclick="saveData()">KAYDET</button>
+  </div>
+</div>
+
+<div id="kml-name-modal">
+  <div class="m-head"><span class="mi">📂</span><h3>Altlık Yükle</h3></div>
+  <p class="m-sub" id="kml-modal-sub">İsim girin.</p>
+  <input type="text" id="kml-name-input" placeholder="Örn: Parsel-129">
+  <div class="m-btns">
+    <button class="btn-mc" onclick="cancelKmlImport()">İPTAL</button>
+    <button class="btn-mo" onclick="confirmKmlImport()">YÜKLE</button>
+  </div>
+</div>
+
+<div id="confirm-modal">
+  <div class="m-head"><span class="mi" id="conf-icon">⚠️</span><h3 id="conf-title">Emin misiniz?</h3></div>
+  <p class="m-sub" id="conf-sub">Bu işlem geri alınamaz.</p>
+  <div class="m-btns">
+    <button class="btn-mc" onclick="closeConfirm()">İPTAL</button>
+    <button class="btn-confirm-ok" id="conf-ok" onclick="confirmOk()">SİL</button>
+  </div>
+</div>
+
+<div id="export-modal">
+  <div class="m-head"><span class="mi">📤</span><h3 id="exp-title">Dosyayı Gönder</h3></div>
+  <p class="m-sub" id="exp-sub">Nasıl göndermek istersiniz?</p>
+  <button class="export-opt-btn btn-wa" onclick="doExport('whatsapp')">
+    <span class="eo-icon">💬</span><div class="eo-texts"><div class="eo-title">WhatsApp ile Gönder</div><div class="eo-sub">Dosyayı WhatsApp üzerinden paylaş</div></div>
+  </button>
+  <button class="export-opt-btn btn-storage" onclick="doExport('storage')">
+    <span class="eo-icon">💾</span><div class="eo-texts"><div class="eo-title">Telefona Kaydet</div><div class="eo-sub">İndirilenler klasörüne kaydet</div></div>
+  </button>
+  <button class="export-opt-btn btn-exp-cancel" onclick="closeExportModal()">
+    <span class="eo-icon">✖</span><div class="eo-texts"><div class="eo-title">İptal</div></div>
+  </button>
+</div>
+
+<!-- DOM SEÇİM MODAL -->
+<div id="dom-modal">
+  <div class="m-head"><span class="mi">📐</span><h3>TXT/DXF Dışa Aktar</h3></div>
+  <p class="m-sub">Koordinat dönüşümü için dilim meridyeni (DOM) seçin:</p>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="auto" checked style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>Otomatik</b><br><span style="color:#b2bec3;font-size:11px;">Noktanın konumuna göre DOM hesaplar</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="27" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 27</b><br><span style="color:#b2bec3;font-size:11px;">Batı Türkiye (lon 25.5°–28.5°)</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="30" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 30</b><br><span style="color:#b2bec3;font-size:11px;">Ege/Akdeniz (lon 28.5°–31.5°)</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="33" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 33</b><br><span style="color:#b2bec3;font-size:11px;">Orta Anadolu (lon 31.5°–34.5°)</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="36" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 36</b><br><span style="color:#b2bec3;font-size:11px;">Doğu Anadolu (lon 34.5°–37.5°)</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="39" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 39</b><br><span style="color:#b2bec3;font-size:11px;">Doğu Türkiye (lon 37.5°–40.5°)</span></div>
+    </label>
+    <label style="color:#dfe6e9;font-size:13px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="radio" name="dom-sel" value="42" style="accent-color:#a29bfe;width:16px;height:16px;">
+      <div><b>DOM = 42</b><br><span style="color:#b2bec3;font-size:11px;">En Doğu Türkiye (lon 40.5°–43.5°)</span></div>
+    </label>
+  </div>
+  <div class="m-btns">
+    <button class="btn-mc" onclick="closeDomModal()">İPTAL</button>
+    <button class="btn-mo" onclick="confirmDomExport()">DEVAM</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════
+//  STORAGE — localStorage tabanlı, sync, no IndexedDB
+// ═══════════════════════════════════════════
+var DB = {
+  _get: function(k){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } },
+  _set: function(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
+
+  getProjects: function(){ return this._get('sah_projects') || []; },
+  saveProjects: function(arr){ this._set('sah_projects', arr); },
+
+  getItems: function(pid){ return this._get('sah_items_'+pid) || []; },
+  saveItems: function(pid, arr){ this._set('sah_items_'+pid, arr); },
+
+  addPoint: function(pid, name, lat, lng){
+    var items = this.getItems(pid);
+    var id = Date.now() + Math.random();
+    items.push({id:id, type:'point', name:name, lat:lat, lng:lng});
+    this.saveItems(pid, items);
+    return id;
+  },
+  addPolygon: function(pid, name, coords, area){
+    var items = this.getItems(pid);
+    var id = Date.now() + Math.random();
+    items.push({id:id, type:'polygon', name:name, coords:coords, area:area});
+    this.saveItems(pid, items);
+    return id;
+  },
+  addLine: function(pid, name, coords, length){
+    var items = this.getItems(pid);
+    var id = Date.now() + Math.random();
+    items.push({id:id, type:'line', name:name, coords:coords, length:length});
+    this.saveItems(pid, items);
+    return id;
+  },
+  addBasemap: function(pid, name, geojson){
+    var items = this.getItems(pid);
+    var id = Date.now() + Math.random();
+    items.push({id:id, type:'basemap', name:name, geojson:geojson});
+    this.saveItems(pid, items);
+    return id;
+  },
+  deleteItem: function(pid, id){
+    var items = this.getItems(pid).filter(function(x){ return x.id !== id; });
+    this.saveItems(pid, items);
+  },
+  clearItems: function(pid){ this.saveItems(pid, []); },
+
+  newProject: function(name){
+    var projs = this.getProjects();
+    var id = Date.now();
+    projs.push({id:id, name:name});
+    this.saveProjects(projs);
+    return id;
+  },
+  deleteProject: function(pid){
+    var projs = this.getProjects().filter(function(p){ return p.id !== pid; });
+    this.saveProjects(projs);
+    localStorage.removeItem('sah_items_'+pid);
+  }
+};
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+var activeProjectId = null;
+var mapLG  = null;
+var baseLG = null;
+var currentBaseLayer = null;
+var drawMode   = null;
+var drawCoords = [];
+var tempLines  = [];
+var tempDots   = [];
+var _pendingType  = null;
+var _pendingValue = null;
+var _pendingKmlGeoJSON = null;
+var _confirmCb  = null;
+var _exportContent  = null;
+var _exportFilename = null;
+var _pendingExportType = null;
+var _domOverride = null;
+var myLM = null, myLC = null;
+
+// ═══════════════════════════════════════════
+//  MAP INIT
+// ═══════════════════════════════════════════
+var map = L.map('map',{zoomControl:false}).setView([39.0,35.0],6);
+
+var tileLayers = {
+  'osm':          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}),
+  'google-street':L.tileLayer('https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}',{maxZoom:20,attribution:'© Google'}),
+  'satellite':    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'}),
+  'google-sat':   L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{maxZoom:20,attribution:'© Google Sat'})
+};
+currentBaseLayer = tileLayers['osm'];
+currentBaseLayer.addTo(map);
+mapLG  = L.featureGroup().addTo(map);
+baseLG = L.featureGroup().addTo(map);
+
+// ═══════════════════════════════════════════
+//  LAYER SWITCHER
+// ═══════════════════════════════════════════
+function toggleLayerPanel(){ document.getElementById('layer-panel').classList.toggle('show'); }
+function switchLayer(t){
+  if(currentBaseLayer) map.removeLayer(currentBaseLayer);
+  currentBaseLayer = tileLayers[t];
+  currentBaseLayer.addTo(map);
+  baseLG.addTo(map); mapLG.addTo(map);
+  document.querySelectorAll('.layer-opt').forEach(function(e){ e.classList.remove('active'); });
+  var el = document.getElementById('opt-'+t); if(el) el.classList.add('active');
+  document.getElementById('layer-panel').classList.remove('show');
+}
+map.on('click', function(){ document.getElementById('layer-panel').classList.remove('show'); });
+
+// ═══════════════════════════════════════════
+//  GPS
+// ═══════════════════════════════════════════
+map.locate({watch:true, enableHighAccuracy:true, setView:false});
+map.on('locationfound', function(e){
+  var b = document.getElementById('gps-box');
+  if(e.accuracy > 20){
+    b.innerHTML = '⚠️ Zayıf GPS: ± '+e.accuracy.toFixed(0)+'m';
+    b.style.borderLeftColor = '#e74c3c';
+  } else {
+    b.innerHTML = '✅ GPS: ± '+e.accuracy.toFixed(1)+'m';
+    b.style.borderLeftColor = '#27ae60';
+  }
+  if(myLM) map.removeLayer(myLM);
+  if(myLC) map.removeLayer(myLC);
+  myLM = L.circleMarker(e.latlng,{radius:8,fillColor:'#0984e3',color:'#fff',weight:2,fillOpacity:1}).addTo(map);
+  myLM.bindPopup('<b>📍 Konumunuz</b><br>± '+e.accuracy.toFixed(1)+' m');
+  if(e.accuracy <= 500){
+    myLC = L.circle(e.latlng,{radius:e.accuracy,color:'#74b9ff',fillColor:'#74b9ff',fillOpacity:.12,weight:1}).addTo(map);
+  }
+});
+map.on('locationerror', function(){
+  var b = document.getElementById('gps-box');
+  b.innerHTML = '❌ GPS Yok'; b.style.borderLeftColor = '#e74c3c';
+});
+
+function goToMyLocation(){
+  map.locate({setView:false, enableHighAccuracy:true, once:true});
+  map.once('locationfound', function(e){
+    map.setView(e.latlng, 17, {animate:true, duration:0.8});
+  });
+}
+
+// ═══════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('active');
+  document.getElementById('sb-overlay').style.display = 'block';
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('active');
+  document.getElementById('sb-overlay').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+function initApp(){
+  var projs = DB.getProjects();
+  if(projs.length === 0){
+    activeProjectId = DB.newProject('Proje 1');
+  } else {
+    activeProjectId = projs[projs.length-1].id;
+  }
+  renderProjectList();
+  loadMapData(true);
+}
+
+function renderProjectList(){
+  var list = document.getElementById('project-list');
+  list.innerHTML = '';
+  var projs = DB.getProjects();
+  projs.forEach(function(proj){
+    var li = document.createElement('li');
+    li.className = 'proj-item'+(proj.id === activeProjectId ? ' active-proj' : '');
+    li.style.flexDirection = 'column'; li.style.alignItems = 'stretch'; li.style.padding = '0';
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 16px;';
+
+    var span = document.createElement('span'); span.className = 'proj-name'; span.textContent = proj.name;
+    span.onclick = (function(id){ return function(){ switchProject(id); }; })(proj.id);
+
+    var btn = document.createElement('button'); btn.className = 'btn-delproj'; btn.textContent = 'Sil';
+    btn.onclick = (function(id, name){ return function(e){ e.stopPropagation(); askDeleteProject(id, name); }; })(proj.id, proj.name);
+
+    row.appendChild(span); row.appendChild(btn); li.appendChild(row);
+
+    // Altlıkları göster
+    var items = DB.getItems(proj.id);
+    items.filter(function(x){ return x.type==='basemap'; }).forEach(function(bm){
+      var bmRow = document.createElement('div');
+      bmRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;'+
+        'padding:7px 16px 7px 26px;background:rgba(52,152,219,.12);border-top:1px solid rgba(255,255,255,.05);';
+      var bmSpan = document.createElement('span');
+      bmSpan.style.cssText = 'font-size:12px;color:#74b9ff;cursor:pointer;flex-grow:1;';
+      bmSpan.textContent = '📂 '+bm.name;
+      bmSpan.onclick = (function(gj){ return function(){
+        try{ map.fitBounds(L.geoJSON(gj).getBounds(),{padding:[40,40],maxZoom:18}); }catch(e){}
+        closeSidebar();
+      }; })(bm.geojson);
+      var bmDel = document.createElement('button');
+      bmDel.style.cssText = 'background:#c0392b;color:#fff;border:none;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:10px;';
+      bmDel.textContent = 'Sil';
+      bmDel.onclick = (function(pid, id, name){ return function(e){
+        e.stopPropagation();
+        showConfirm('📂','Altlığı Sil',"'"+name+"' silinecek.",'SİL', function(){
+          DB.deleteItem(pid, id);
+          renderProjectList(); loadMapData(false);
+          showToast('🗑️ Altlık silindi');
+        });
+      }; })(proj.id, bm.id, bm.name);
+      bmRow.appendChild(bmSpan); bmRow.appendChild(bmDel); li.appendChild(bmRow);
+    });
+
+    list.appendChild(li);
+  });
+}
+
+function switchProject(id){
+  activeProjectId = id;
+  renderProjectList();
+  loadMapData(true);
+  closeSidebar();
+}
+
+function createNewProject(){
+  var n = prompt('Yeni Dosya Adı:');
+  if(n && n.trim()){
+    activeProjectId = DB.newProject(n.trim());
+    renderProjectList();
+    loadMapData(true);
+  }
+}
+
+function askDeleteProject(id, name){
+  showConfirm('🗑️','Dosyayı Sil',"'"+name+"' ve tüm verileri silinecek.",'SİL', function(){
+    DB.deleteProject(id);
+    var projs = DB.getProjects();
+    if(projs.length === 0){
+      activeProjectId = DB.newProject('Proje 1');
+    } else {
+      activeProjectId = projs[0].id;
+    }
+    renderProjectList(); loadMapData(true);
+    showToast('🗑️ Dosya silindi');
+  });
+}
+
+function askClearProject(){
+  showConfirm('⚠️','Verileri Temizle','Tüm veriler silinecek.','TEMİZLE', function(){
+    DB.clearItems(activeProjectId);
+    loadMapData(false);
+    showToast('🗑️ Veriler temizlendi');
+  });
+}
+
+// ═══════════════════════════════════════════
+//  LOAD MAP DATA
+// ═══════════════════════════════════════════
+function redDot(){
+  return L.divIcon({className:'',
+    html:'<div style="width:14px;height:14px;background:#e74c3c;border:2.5px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.6);"></div>',
+    iconSize:[14,14],iconAnchor:[7,7],popupAnchor:[0,-8]});
+}
+
+function loadMapData(doFit){
+  mapLG.clearLayers();
+  baseLG.clearLayers();
+  if(!activeProjectId) return;
+
+  var items = DB.getItems(activeProjectId);
+  items.forEach(function(item){
+    if(item.type === 'basemap'){
+      var gj = L.geoJSON(item.geojson,{
+        style:function(){ return{color:'#3498db',weight:2.5,opacity:.85,fillOpacity:.18,dashArray:'6,4'}; },
+        pointToLayer:function(f,ll){ return L.circleMarker(ll,{radius:6,fillColor:'#3498db',color:'#fff',weight:1.5,fillOpacity:.9}); },
+        onEachFeature: function(feature, layer){
+          // Her feature için isim + alan/uzunluk popup'ı
+          var fname = (feature.properties && feature.properties.name) ? feature.properties.name : item.name;
+          var popupHtml = '<b>📂 '+item.name+'</b>';
+          if(feature.geometry){
+            if(feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon'){
+              try{
+                var areaSqm = turf.area(feature);
+                var areaStr = areaSqm >= 10000
+                  ? (areaSqm/10000).toFixed(4)+' ha  <small>('+Math.round(areaSqm).toLocaleString()+' m²)</small>'
+                  : areaSqm.toFixed(2)+' m²';
+                popupHtml = '<b>📂 '+item.name+'</b>'
+                  + (fname !== item.name ? '<br><small>'+fname+'</small>' : '')
+                  + '<br>📐 Alan: <b>'+areaStr+'</b>';
+              }catch(e){}
+            } else if(feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString'){
+              try{
+                var lengthM = turf.length(feature,{units:'meters'});
+                var lenStr = lengthM >= 1000
+                  ? (lengthM/1000).toFixed(3)+' km'
+                  : lengthM.toFixed(2)+' m';
+                popupHtml = '<b>📂 '+item.name+'</b>'
+                  + (fname !== item.name ? '<br><small>'+fname+'</small>' : '')
+                  + '<br>📏 Uzunluk: <b>'+lenStr+'</b>';
+              }catch(e){}
+            } else if(feature.geometry.type === 'Point'){
+              popupHtml = '<b>📂 '+item.name+'</b>'
+                + (fname !== item.name ? '<br><small>'+fname+'</small>' : '');
+            }
+          }
+          layer.bindPopup(popupHtml);
+        }
+      });
+      gj.addTo(baseLG);
+    } else if(item.type === 'point'){
+      L.marker([item.lat,item.lng],{icon:redDot()})
+        .bindPopup('<b>📍 '+item.name+'</b><br><small>Lat:'+item.lat.toFixed(6)+'<br>Lng:'+item.lng.toFixed(6)+'</small>')
+        .addTo(mapLG);
+    } else if(item.type === 'polygon'){
+      L.polygon(item.coords,{color:'#8e44ad',weight:2.5,fillOpacity:.2})
+        .bindPopup('<b>📐 '+item.name+'</b><br>Alan: '+item.area+' m²')
+        .addTo(mapLG);
+    } else if(item.type === 'line'){
+      L.polyline(item.coords,{color:'#e67e22',weight:3.5})
+        .bindPopup('<b>〰️ '+item.name+'</b><br>Uzunluk: '+item.length+' m')
+        .addTo(mapLG);
+    }
+  });
+
+  if(doFit){
+    var all = L.featureGroup([mapLG, baseLG]);
+    if(all.getLayers().length > 0){
+      try{ map.fitBounds(all.getBounds(),{padding:[45,45],maxZoom:18}); }catch(e){}
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  KML IMPORT
+// ═══════════════════════════════════════════
+function importKML(event){
+  var file = event.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var xmlDoc = new DOMParser().parseFromString(e.target.result,'text/xml');
+      if(xmlDoc.querySelector('parsererror')){ showToast('❌ KML parse hatası'); event.target.value=''; return; }
+      var geojson = kmlToGeoJSON(xmlDoc);
+      if(!geojson.features || geojson.features.length===0){ showToast('❌ KML içinde veri yok'); event.target.value=''; return; }
+      var nameEl = xmlDoc.querySelector('Placemark > name');
+      var defName = nameEl ? nameEl.textContent.trim() : file.name.replace(/\.kml$/i,'');
+      _pendingKmlGeoJSON = geojson;
+      document.getElementById('kml-modal-sub').textContent = '"'+file.name+'" için isim girin.';
+      document.getElementById('kml-name-input').value = defName;
+      showOverlay();
+      document.getElementById('kml-name-modal').style.display = 'block';
+      setTimeout(function(){ var inp=document.getElementById('kml-name-input'); inp.focus(); inp.select(); },80);
+    } catch(err){ showToast('❌ Hata: '+err.message); }
+    event.target.value = '';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function cancelKmlImport(){
+  _pendingKmlGeoJSON = null;
+  document.getElementById('kml-name-modal').style.display = 'none';
+  hideOverlay();
+}
+
+function confirmKmlImport(){
+  var name = document.getElementById('kml-name-input').value.trim();
+  if(!name){ showToast('⚠️ Bir isim girin!'); return; }
+  if(!_pendingKmlGeoJSON) return;
+  DB.addBasemap(activeProjectId, name, _pendingKmlGeoJSON);
+  _pendingKmlGeoJSON = null;
+  document.getElementById('kml-name-modal').style.display = 'none';
+  hideOverlay();
+  renderProjectList();
+  loadMapData(true);
+  closeSidebar();
+  showToast('✅ Yüklendi: '+name);
+}
+
+function kmlToGeoJSON(xmlDoc){
+  var features = [];
+  function getTags(p,t){
+    var r=p.getElementsByTagNameNS('http://www.opengis.net/kml/2.2',t);
+    if(!r||!r.length) r=p.getElementsByTagNameNS('http://earth.google.com/kml/2.2',t);
+    if(!r||!r.length) r=p.getElementsByTagName(t);
+    return r;
+  }
+  var pms = getTags(xmlDoc,'Placemark');
+  for(var i=0;i<pms.length;i++){
+    var pm = pms[i];
+    var nels = getTags(pm,'name'); var name = nels.length>0 ? nels[0].textContent.trim() : ('Obje '+(i+1));
+    var pe=getTags(pm,'Polygon');
+    if(pe.length>0){
+      var oe=getTags(pe[0],'outerBoundaryIs'); var ce=null;
+      if(oe.length>0){var le=getTags(oe[0],'LinearRing');if(le.length>0)ce=getTags(le[0],'coordinates')[0];}
+      if(!ce)ce=getTags(pe[0],'coordinates')[0];
+      if(ce){var ring=parseKC(ce.textContent);if(ring.length>=3){if(ring[0][0]!==ring[ring.length-1][0]||ring[0][1]!==ring[ring.length-1][1])ring.push([ring[0][0],ring[0][1]]);features.push({type:'Feature',properties:{name:name},geometry:{type:'Polygon',coordinates:[ring]}});}}
+    }
+    var le2=getTags(pm,'LineString');
+    if(le2.length>0){var ce2=getTags(le2[0],'coordinates')[0];if(ce2){var pts=parseKC(ce2.textContent);if(pts.length>=2)features.push({type:'Feature',properties:{name:name},geometry:{type:'LineString',coordinates:pts}});}}
+    var pe2=getTags(pm,'Point');
+    if(pe2.length>0){var ce3=getTags(pe2[0],'coordinates')[0];if(ce3){var pp=ce3.textContent.trim().split(',');if(pp.length>=2){var lo=parseFloat(pp[0]),la=parseFloat(pp[1]);if(!isNaN(lo)&&!isNaN(la))features.push({type:'Feature',properties:{name:name},geometry:{type:'Point',coordinates:[lo,la]}});}}}
+  }
+  return{type:'FeatureCollection',features:features};
+}
+function parseKC(text){
+  var coords=[];
+  text.trim().split(/\s+/).forEach(function(t){t=t.trim();if(!t)return;var p=t.split(',');if(p.length>=2){var lo=parseFloat(p[0]),la=parseFloat(p[1]);if(!isNaN(lo)&&!isNaN(la))coords.push([lo,la]);}});
+  return coords;
+}
+
+// ═══════════════════════════════════════════
+//  DRAWING
+// ═══════════════════════════════════════════
+function startDrawing(mode){
+  drawMode=mode; drawCoords=[];
+  clearTempDraw();
+  document.getElementById('controls').style.display='none';
+  document.getElementById('draw-controls').style.display='flex';
+  showToast(mode==='area'?'📐 Köşe Ekle ile nokta ekleyin':'〰️ Köşe Ekle ile nokta ekleyin');
+}
+
+function clearTempDraw(){
+  tempLines.forEach(function(l){ map.removeLayer(l); }); tempLines=[];
+  tempDots.forEach(function(d){ map.removeLayer(d); });  tempDots=[];
+}
+
+function addVertex(){
+  var c = map.getCenter();
+  drawCoords.push([c.lat, c.lng]);
+  var dot = L.circleMarker([c.lat,c.lng],{radius:5,fillColor:'#f1c40f',color:'#fff',weight:2,fillOpacity:1,zIndexOffset:500}).addTo(map);
+  tempDots.push(dot);
+  if(tempLines.length>0){ map.removeLayer(tempLines[tempLines.length-1]); tempLines.pop(); }
+  if(drawCoords.length>=2){
+    var prev = drawMode==='area' ? drawCoords.concat([drawCoords[0]]) : drawCoords;
+    var pl = L.polyline(prev,{color:'#e74c3c',weight:2.5,dashArray:drawMode==='area'?'8,4':null}).addTo(map);
+    tempLines.push(pl);
+  }
+  showToast('✅ Köşe '+drawCoords.length+' eklendi');
+}
+
+function cancelDrawing(){
+  drawMode=null; drawCoords=[]; clearTempDraw();
+  document.getElementById('controls').style.display='flex';
+  document.getElementById('draw-controls').style.display='none';
+}
+
+function finishDrawing(){
+  if(drawMode==='area'){
+    if(drawCoords.length<3){ showToast('⚠️ En az 3 köşe gerekli!'); return; }
+    var ring = drawCoords.map(function(c){ return [c[1],c[0]]; });
+    ring.push([ring[0][0],ring[0][1]]);
+    var area = turf.area(turf.polygon([ring]));
+    _pendingType='area'; _pendingValue=area;
+    openSaveModal('area', area);
+  } else if(drawMode==='line'){
+    if(drawCoords.length<2){ showToast('⚠️ En az 2 nokta gerekli!'); return; }
+    var ln = drawCoords.map(function(c){ return [c[1],c[0]]; });
+    var len = turf.length(turf.lineString(ln),{units:'meters'});
+    _pendingType='line'; _pendingValue=len;
+    openSaveModal('line', len);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════
+function showOverlay(){ document.getElementById('modal-overlay').style.display='block'; }
+function hideOverlay(){ document.getElementById('modal-overlay').style.display='none'; }
+
+function openSaveModal(type, value){
+  document.getElementById('m-icon').textContent  = type==='area'?'📐':'〰️';
+  document.getElementById('m-title').textContent = type==='area'?'Alan Kaydet':'Çizgi Kaydet';
+  document.getElementById('m-sub').textContent   = type==='area'?'Alan: '+value.toFixed(2)+' m²  |  İsim verin:':'Uzunluk: '+value.toFixed(2)+' m  |  İsim verin:';
+  document.getElementById('item-name').value = '';
+  showOverlay();
+  document.getElementById('data-modal').style.display = 'block';
+  setTimeout(function(){ document.getElementById('item-name').focus(); },80);
+}
+
+function openPointModal(){
+  _pendingType='point';
+  document.getElementById('m-icon').textContent  = '📍';
+  document.getElementById('m-title').textContent = 'Nokta Kaydet';
+  document.getElementById('m-sub').textContent   = 'Harita merkezine isim verin.';
+  document.getElementById('item-name').value = '';
+  showOverlay();
+  document.getElementById('data-modal').style.display = 'block';
+  setTimeout(function(){ document.getElementById('item-name').focus(); },80);
+}
+
+function closeModal(){
+  document.getElementById('data-modal').style.display = 'none';
+  var others = ['confirm-modal','export-modal','kml-name-modal','dom-modal'];
+  var anyOpen = others.some(function(id){ return document.getElementById(id).style.display==='block'; });
+  if(!anyOpen) hideOverlay();
+  _pendingType=null; _pendingValue=null;
+}
+
+// ── KAYDET — tamamen sync, async yok ──
+function saveData(){
+  var name = document.getElementById('item-name').value.trim();
+  if(!name){ showToast('⚠️ Lütfen bir isim girin!'); return; }
+  if(!activeProjectId){ showToast('❌ Aktif proje yok!'); return; }
+
+  // Önce modalı kapat
+  document.getElementById('data-modal').style.display = 'none';
+  hideOverlay();
+
+  if(_pendingType === 'point'){
+    var center = map.getCenter();
+    DB.addPoint(activeProjectId, name, center.lat, center.lng);
+    // Direkt marker ekle — loadMapData çağırma
+    var marker = L.marker([center.lat, center.lng],{icon:redDot()});
+    marker.bindPopup('<b>📍 '+name+'</b><br><small>Lat:'+center.lat.toFixed(6)+'<br>Lng:'+center.lng.toFixed(6)+'</small>');
+    marker.addTo(mapLG);
+    _pendingType=null; _pendingValue=null;
+    showToast('✅ Nokta kaydedildi: '+name);
+
+  } else if(_pendingType === 'area'){
+    var coords = drawCoords.slice();
+    DB.addPolygon(activeProjectId, name, coords, _pendingValue.toFixed(2));
+    _pendingType=null; _pendingValue=null;
+    cancelDrawing();
+    loadMapData(true);
+    showToast('✅ Alan kaydedildi: '+name);
+
+  } else if(_pendingType === 'line'){
+    var coords2 = drawCoords.slice();
+    DB.addLine(activeProjectId, name, coords2, _pendingValue.toFixed(2));
+    _pendingType=null; _pendingValue=null;
+    cancelDrawing();
+    loadMapData(true);
+    showToast('✅ Çizgi kaydedildi: '+name);
+  }
+}
+
+// ── Confirm Modal ──
+function showConfirm(icon,title,sub,okLabel,cb){
+  _confirmCb=cb;
+  document.getElementById('conf-icon').textContent=icon;
+  document.getElementById('conf-title').textContent=title;
+  document.getElementById('conf-sub').textContent=sub;
+  document.getElementById('conf-ok').textContent=okLabel;
+  showOverlay();
+  document.getElementById('confirm-modal').style.display='block';
+}
+function closeConfirm(){
+  document.getElementById('confirm-modal').style.display='none';
+  hideOverlay(); _confirmCb=null;
+}
+function confirmOk(){ var cb=_confirmCb; closeConfirm(); if(cb)cb(); }
+
+// ═══════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════
+function askExport(type){
+  if(type==='kml'){
+    // KML için DOM gerekmez, direkt paylaşım ekranına git
+    var r=buildKML();
+    if(!r) return;
+    _exportContent=r.content; _exportFilename=r.filename;
+    document.getElementById('exp-title').textContent=r.filename+' Gönder';
+    document.getElementById('exp-sub').textContent='"'+r.filename+'" nasıl göndermek istersiniz?';
+    showOverlay();
+    document.getElementById('export-modal').style.display='block';
+  } else {
+    // TXT ve DXF için önce DOM seçim ekranı
+    _pendingExportType=type;
+    // otomatik seçeneğe dön
+    var radios=document.getElementsByName('dom-sel');
+    for(var i=0;i<radios.length;i++){ if(radios[i].value==='auto'){radios[i].checked=true;break;} }
+    showOverlay();
+    document.getElementById('dom-modal').style.display='block';
+  }
+}
+function closeDomModal(){
+  document.getElementById('dom-modal').style.display='none';
+  hideOverlay(); _pendingExportType=null; _domOverride=null;
+}
+function confirmDomExport(){
+  var sel=null;
+  var radios=document.getElementsByName('dom-sel');
+  for(var i=0;i<radios.length;i++){ if(radios[i].checked){sel=radios[i].value;break;} }
+  _domOverride = (sel==='auto') ? null : parseInt(sel);
+  document.getElementById('dom-modal').style.display='none';
+  // hideOverlay çağırma, export modal açılacak
+  var r=null;
+  if(_pendingExportType==='txt') r=buildTXT(_domOverride);
+  else if(_pendingExportType==='dxf') r=buildDXF(_domOverride);
+  _pendingExportType=null; _domOverride=null;
+  if(!r){ hideOverlay(); return; }
+  _exportContent=r.content; _exportFilename=r.filename;
+  document.getElementById('exp-title').textContent=r.filename+' Gönder';
+  document.getElementById('exp-sub').textContent='"'+r.filename+'" nasıl göndermek istersiniz?';
+  document.getElementById('export-modal').style.display='block';
+}
+function closeExportModal(){
+  document.getElementById('export-modal').style.display='none';
+  hideOverlay(); _exportContent=null; _exportFilename=null;
+}
+function doExport(method){
+  var content=_exportContent, filename=_exportFilename;
+  closeExportModal();
+  if(!content||!filename) return;
+  if(typeof Android!=='undefined'){
+    try{
+      if(method==='whatsapp'){ Android.shareViaWhatsApp(content,filename); showToast('💬 WhatsApp\'a gönderiliyor...'); }
+      else{ Android.downloadTXT(content,filename); showToast('💾 Kaydediliyor: '+filename); }
+    }catch(e){ showToast('❌ Hata: '+e.message); }
+  } else {
+    var blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  ITRF96
+// ═══════════════════════════════════════════
+function calcDOM(lng){ return Math.floor((lng+1.5)/3)*3; }
+function toITRF96(lng,lat,domOverride){
+  var dom = domOverride ? domOverride : calcDOM(lng);
+  var ps='+proj=tmerc +lat_0=0 +lon_0='+dom+' +k=1 +x_0=500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
+  var res=proj4('WGS84',ps,[lng,lat]);
+  return{Y:res[0],X:res[1],DOM:dom};
+}
+
+function buildTXT(domOverride){
+  var items=DB.getItems(activeProjectId);
+  var pts=items.filter(function(x){return x.type==='point';});
+  var polys=items.filter(function(x){return x.type==='polygon';});
+  var lns=items.filter(function(x){return x.type==='line';});
+  if(pts.length+polys.length+lns.length===0){showToast('⚠️ Veri yok!');return null;}
+  var txt='NoktaAdi\tY(Saga)\tX(Yukari)\tDOM\n';
+  function row(n,lat,lng){var r=toITRF96(lng,lat,domOverride);txt+=n+'\t'+r.Y.toFixed(3)+'\t'+r.X.toFixed(3)+'\t'+r.DOM+'\n';}
+  pts.forEach(function(p){row(p.name,p.lat,p.lng);});
+  polys.forEach(function(poly){poly.coords.forEach(function(c,i){row(poly.name+'_K'+(i+1),c[0],c[1]);});});
+  lns.forEach(function(line){line.coords.forEach(function(c,i){row(line.name+'_N'+(i+1),c[0],c[1]);});});
+  var domLabel=domOverride?('DOM'+domOverride):'ITRF96';
+  return{content:txt,filename:'SahApp_'+domLabel+'.txt'};
+}
+
+function buildKML(){
+  var items=DB.getItems(activeProjectId);
+  var pts=items.filter(function(x){return x.type==='point';});
+  var polys=items.filter(function(x){return x.type==='polygon';});
+  var lns=items.filter(function(x){return x.type==='line';});
+  if(pts.length+polys.length+lns.length===0){showToast('⚠️ Veri yok!');return null;}
+  var kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>SahApp</name>\n';
+  pts.forEach(function(p){kml+='<Placemark><name>'+xe(p.name)+'</name><Point><coordinates>'+p.lng+','+p.lat+',0</coordinates></Point></Placemark>\n';});
+  polys.forEach(function(poly){
+    kml+='<Placemark><name>'+xe(poly.name)+'</name><Polygon><outerBoundaryIs><LinearRing><coordinates>\n';
+    poly.coords.forEach(function(c){kml+=c[1]+','+c[0]+',0\n';});
+    kml+=poly.coords[0][1]+','+poly.coords[0][0]+',0\n</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>\n';
+  });
+  lns.forEach(function(line){
+    kml+='<Placemark><name>'+xe(line.name)+'</name><LineString><coordinates>\n';
+    line.coords.forEach(function(c){kml+=c[1]+','+c[0]+',0\n';});
+    kml+='</coordinates></LineString></Placemark>\n';
+  });
+  kml+='</Document>\n</kml>';
+  return{content:kml,filename:'SahApp_Verisi.kml'};
+}
+
+function buildDXF(domOverride){
+  var items=DB.getItems(activeProjectId);
+  var pts  =items.filter(function(x){return x.type==='point';});
+  var polys=items.filter(function(x){return x.type==='polygon';});
+  var lns  =items.filter(function(x){return x.type==='line';});
+  if(pts.length+polys.length+lns.length===0){showToast('⚠️ Veri yok!');return null;}
+
+  // DXF R12 (AC1009) — en geniş uyumluluk, LWPOLYLINE YOK
+  // Her group code iki satır: kod satırı + değer satırı, iki boşlukla hizalı
+  function gc(code, val){
+    return ''+String(code).padStart(3)+'\n'+val+'\n';
+  }
+
+  var d = '';
+  // HEADER — minimum
+  d += gc(0,'SECTION')+gc(2,'HEADER');
+  d += gc(9,'$ACADVER')+gc(1,'AC1009');
+  d += gc(9,'$INSUNITS')+gc(70,'6');
+  d += gc(0,'ENDSEC');
+
+  // ENTITIES
+  d += gc(0,'SECTION')+gc(2,'ENTITIES');
+
+  var handle = 100;
+
+  // POINT + TEXT etiket
+  pts.forEach(function(p){
+    var r=toITRF96(p.lng,p.lat,domOverride);
+    // POINT
+    d += gc(0,'POINT');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'Noktalar');
+    d += gc(10,r.Y.toFixed(4));
+    d += gc(20,r.X.toFixed(4));
+    d += gc(30,'0.0');
+    // TEXT
+    d += gc(0,'TEXT');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'NoktaIsimleri');
+    d += gc(10,(r.Y+1.5).toFixed(4));
+    d += gc(20,(r.X+1.5).toFixed(4));
+    d += gc(30,'0.0');
+    d += gc(40,'1.5');
+    d += gc(1, p.name);
+  });
+
+  // Poligon → POLYLINE + VERTEX + SEQEND (R12 uyumlu, kapalı)
+  polys.forEach(function(poly){
+    d += gc(0,'POLYLINE');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'Alanlar');
+    d += gc(66,'1');   // vertices follow
+    d += gc(70,'1');   // closed
+    poly.coords.forEach(function(coord){
+      var r=toITRF96(coord[1],coord[0],domOverride);
+      d += gc(0,'VERTEX');
+      d += gc(5, (handle++).toString(16));
+      d += gc(8,'Alanlar');
+      d += gc(10,r.Y.toFixed(4));
+      d += gc(20,r.X.toFixed(4));
+      d += gc(30,'0.0');
+    });
+    d += gc(0,'SEQEND');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'Alanlar');
+  });
+
+  // Çizgi → POLYLINE + VERTEX + SEQEND (açık)
+  lns.forEach(function(line){
+    d += gc(0,'POLYLINE');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'Cizgiler');
+    d += gc(66,'1');
+    d += gc(70,'0');   // open
+    line.coords.forEach(function(coord){
+      var r=toITRF96(coord[1],coord[0],domOverride);
+      d += gc(0,'VERTEX');
+      d += gc(5, (handle++).toString(16));
+      d += gc(8,'Cizgiler');
+      d += gc(10,r.Y.toFixed(4));
+      d += gc(20,r.X.toFixed(4));
+      d += gc(30,'0.0');
+    });
+    d += gc(0,'SEQEND');
+    d += gc(5, (handle++).toString(16));
+    d += gc(8,'Cizgiler');
+  });
+
+  d += gc(0,'ENDSEC');
+  d += gc(0,'EOF');
+
+  var lbl=domOverride?('DOM'+domOverride):'ITRF96';
+  return{content:d,filename:'SahApp_'+lbl+'.dxf'};
+}
+
+function xe(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════
+var _tt=null;
+function showToast(msg){
+  var el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  if(_tt)clearTimeout(_tt);
+  _tt=setTimeout(function(){ el.classList.remove('show'); },2800);
+}
+
+// ═══════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════
+initApp();
+
+// ─── Service Worker Kaydı ───────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      console.log('SW registered:', reg.scope);
+    }).catch(function(err){
+      console.log('SW error:', err);
+    });
+  });
+}
+
+// ─── iOS tam ekran için safe-area padding ───
+(function(){
+  function fixSafeArea(){
+    var bottom = parseInt(getComputedStyle(document.documentElement)
+      .getPropertyValue('--sab') || '0') || 0;
+    var controls = document.getElementById('controls');
+    var drawControls = document.getElementById('draw-controls');
+    if(controls) controls.style.paddingBottom = (bottom > 0 ? bottom+'px' : '');
+    if(drawControls) drawControls.style.paddingBottom = (bottom > 0 ? bottom+'px' : '');
+  }
+  fixSafeArea();
+})();
+</script>
+</body>
+</html>
